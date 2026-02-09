@@ -38,13 +38,17 @@ export async function createSale(userId, payload) {
     if (p.qty < qty)
       throw err(`Insufficient stock for ${p.name} (in stock: ${p.qty})`);
     const unitPrice = Number(i.unitPrice ?? p.retailPrice);
-    const lineTotal = +(qty * unitPrice).toFixed(2);
+    const discount = Number(i.discount || 0);
+    const discountedPrice = +(unitPrice - discount).toFixed(2);
+    const lineTotal = +(qty * discountedPrice).toFixed(2);
     return {
       product: p._id,
       name: p.name,
       barcode: p.barcode,
       qty,
       unitPrice,
+      discount,
+      discountedPrice,
       costPrice: Number(p.costPrice || 0),
       lineTotal,
     };

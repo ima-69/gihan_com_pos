@@ -92,23 +92,36 @@ const SalesReceipt = forwardRef(({ sale, logoSrc }, ref) => {
               <th className="text-left py-2 px-2 font-bold text-xs">BARCODE</th>
               <th className="text-right py-2 px-2 font-bold text-xs">QTY</th>
               <th className="text-right py-2 px-2 font-bold text-xs">UNIT PRICE</th>
+              <th className="text-right py-2 px-2 font-bold text-xs">DISCOUNT</th>
+              <th className="text-right py-2 px-2 font-bold text-xs">FINAL PRICE</th>
               <th className="text-right py-2 px-2 font-bold text-xs">TOTAL</th>
             </tr>
           </thead>
           <tbody>
-            {sale.items.map((item, i) => (
+            {sale.items.map((item, i) => {
+              const itemDiscount = Number(item.discount || 0)
+              const discountedPrice = Number(item.discountedPrice || (item.unitPrice - itemDiscount))
+              
+              return (
               <tr key={i} className={`${i % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-200`}>
                 <td className="py-2 px-2 text-xs font-medium">{i + 1}</td>
                 <td className="py-2 px-2 text-xs font-medium text-gray-800">{item.name}</td>
                 <td className="py-2 px-2 text-xs text-gray-600 font-mono">{item.barcode || '-'}</td>
                 <td className="py-2 px-2 text-xs text-right font-semibold">{item.qty}</td>
                 <td className="py-2 px-2 text-xs text-right">RS {Number(item.unitPrice).toFixed(2)}</td>
+                <td className="py-2 px-2 text-xs text-right text-red-600">
+                  {itemDiscount > 0 ? `-RS ${itemDiscount.toFixed(2)}` : '-'}
+                </td>
+                <td className="py-2 px-2 text-xs text-right font-semibold text-green-700">RS {discountedPrice.toFixed(2)}</td>
                 <td className="py-2 px-2 text-xs text-right font-bold text-orange-600">RS {Number(item.lineTotal).toFixed(2)}</td>
               </tr>
-            ))}
+              )
+            })}
             {/* Reduce empty rows to 2 for space efficiency */}
             {Array.from({ length: Math.max(0, 2 - sale.items.length) }).map((_, i) => (
               <tr key={`empty-${i}`} className={`${(sale.items.length + i) % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-100`}>
+                <td className="py-2 px-2 text-xs">&nbsp;</td>
+                <td className="py-2 px-2 text-xs">&nbsp;</td>
                 <td className="py-2 px-2 text-xs">&nbsp;</td>
                 <td className="py-2 px-2 text-xs">&nbsp;</td>
                 <td className="py-2 px-2 text-xs">&nbsp;</td>

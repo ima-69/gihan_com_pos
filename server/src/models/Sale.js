@@ -11,6 +11,8 @@ const saleItemSchema = new mongoose.Schema(
     barcode: String,
     qty: Number,
     unitPrice: Number,
+    discount: { type: Number, default: 0 },
+    discountedPrice: Number,
     costPrice: Number, 
     lineTotal: Number,
   },

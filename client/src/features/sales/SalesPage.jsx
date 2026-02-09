@@ -22,6 +22,7 @@ export default function SalesPage() {
   const [selectedProductId, setSelectedProductId] = useState('')
   const [qty, setQty] = useState(1)
   const [unitPrice, setUnitPrice] = useState(0)
+  const [discount, setDiscount] = useState(0)
 
   // Cart
   const [cart, setCart] = useState([])
@@ -37,7 +38,11 @@ export default function SalesPage() {
 
   // Totals
   const totals = useMemo(() => {
-    const subTotal = cart.reduce((s, it) => s + it.unitPrice * it.qty, 0)
+    const subTotal = cart.reduce((s, it) => {
+      const itemDiscount = Number(it.discount || 0)
+      const discountedPrice = it.unitPrice - itemDiscount
+      return s + (discountedPrice * it.qty)
+    }, 0)
     const grandTotal = +(subTotal).toFixed(2)
     const balance = +(grandTotal - Number(paid || 0)).toFixed(2)
     return { subTotal, grandTotal, balance }
@@ -57,12 +62,12 @@ export default function SalesPage() {
     }
   }, [selectedProductId, productOptions])
 
-  function addToCartFromProduct(p, quantity, price) {
+  function addToCartFromProduct(p, quantity, price, itemDiscount) {
     setCart(prev => {
       const idx = prev.findIndex(x => x.productId === p._id)
       if (idx >= 0) {
         const copy = [...prev]
-        copy[idx] = { ...copy[idx], qty: copy[idx].qty + quantity, unitPrice: price }
+        copy[idx] = { ...copy[idx], qty: copy[idx].qty + quantity, unitPrice: price, discount: itemDiscount }
         return copy
       }
       return [...prev, {
@@ -70,6 +75,7 @@ export default function SalesPage() {
         name: p.name,
         barcode: p.barcode,
         unitPrice: price,
+        discount: itemDiscount || 0,
         qty: quantity
       }]
     })
@@ -79,6 +85,7 @@ export default function SalesPage() {
     setMessage('')
     const q = Math.max(1, Number(qty || 1))
     const price = Math.max(0, Number(unitPrice || 0))
+    const disc = Math.max(0, Number(discount || 0))
 
     try {
       let product = null
@@ -92,9 +99,9 @@ export default function SalesPage() {
         return
       }
       const usePrice = price || Number(product.retailPrice) || 0
-      addToCartFromProduct(product, q, usePrice)
+      addToCartFromProduct(product, q, usePrice, disc)
       // reset inputs
-      setQty(1); setUnitPrice(0); setSelectedProductId(''); setBarcode('')
+      setQty(1); setUnitPrice(0); setDiscount(0); setSelectedProductId(''); setBarcode('')
       setTimeout(() => barcodeRef.current?.focus(), 0)
     } catch {
       setMessage('Product not found for barcode')
@@ -108,7 +115,7 @@ export default function SalesPage() {
   }
   function clearCart() {
     setCart([]); setPaid(0); setSelectedIndex(-1)
-    setBarcode(''); setSelectedProductId(''); setQty(1); setUnitPrice(0)
+    setBarcode(''); setSelectedProductId(''); setQty(1); setUnitPrice(0); setDiscount(0)
     setSelectedCustomerId(''); setCustomerSearch('')
     setTimeout(() => barcodeRef.current?.focus(), 0)
   }
@@ -127,7 +134,12 @@ export default function SalesPage() {
     setMessage('')
     try {
       const payload = {
-        items: cart.map(it => ({ productId: it.productId, qty: it.qty, unitPrice: it.unitPrice })),
+        items: cart.map(it => ({ 
+          productId: it.productId, 
+          qty: it.qty, 
+          unitPrice: it.unitPrice,
+          discount: it.discount || 0
+        })),
         paidAmount: Number(paid || 0),
         customerId: selectedCustomerId || null
       }
@@ -235,9 +247,9 @@ export default function SalesPage() {
             {/* Quantity and Price */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide">
-                Quantity & Price
+                Quantity, Price & Discount
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Quantity</label>
                   <input 
@@ -258,11 +270,22 @@ export default function SalesPage() {
                     className="w-full px-2 py-1.5 bg-gradient-to-r from-gray-50 to-white border-2 border-gray-200 rounded-xl focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all duration-200 text-sm" 
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Discount (Rs)</label>
+                  <input 
+                    type="number" 
+                    min={0} 
+                    value={discount} 
+                    onChange={(e) => setDiscount(e.target.value)} 
+                    className="w-full px-2 py-1.5 bg-gradient-to-r from-gray-50 to-white border-2 border-orange-200 rounded-xl focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all duration-200 text-sm" 
+                    placeholder="0.00"
+                  />
+                </div>
                 <div className="flex items-end">
                   <div className="w-full text-center p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-xl border border-green-200">
                     <div className="text-xs font-medium text-green-700 mb-1">TOTAL PRICE</div>
                     <div className="text-xl font-bold text-green-800">
-                      Rs {(Number(qty || 0) * Number(unitPrice || 0)).toFixed(2)}
+                      Rs {(Number(qty || 0) * (Number(unitPrice || 0) - Number(discount || 0))).toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -320,16 +343,23 @@ export default function SalesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
-                  <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Index</th>
+                  <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">#</th>
                   <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Name</th>
                   <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Barcode</th>
                   <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Qty</th>
                   <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Unit Price</th>
-                  <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Total Price</th>
+                  <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Discount</th>
+                  <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Final Price</th>
+                  <th className="text-left py-3 px-4 font-bold text-gray-700 uppercase tracking-wide">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {cart.map((it, i) => (
+                {cart.map((it, i) => {
+                  const itemDiscount = Number(it.discount || 0)
+                  const discountedPrice = Number(it.unitPrice) - itemDiscount
+                  const lineTotal = discountedPrice * Number(it.qty)
+                  
+                  return (
                   <tr
                     key={it.productId}
                     className={`border-b border-gray-100 cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-transparent ${
@@ -366,14 +396,32 @@ export default function SalesPage() {
                         onClick={(e) => e.stopPropagation()}
                       />
                     </td>
+                    <td className="py-3 px-4">
+                      <input 
+                        type="number" 
+                        min={0} 
+                        value={it.discount || 0}
+                        onChange={(e) => {
+                          const v = Math.max(0, Number(e.target.value || 0))
+                          setCart(prev => prev.map((x, idx) => idx === i ? { ...x, discount: v } : x))
+                        }}
+                        className="w-24 px-2 py-1.5 bg-orange-50 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="0.00"
+                      />
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-green-700">
+                      {discountedPrice.toFixed(2)}
+                    </td>
                     <td className="py-3 px-4 font-bold text-gray-900">
-                      {(it.qty * it.unitPrice).toFixed(2)}
+                      {lineTotal.toFixed(2)}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
                 {cart.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="py-12 text-center">
+                    <td colSpan="8" className="py-12 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13h10M17 21a2 2 0 100-4 2 2 0 000 4zM9 21a2 2 0 100-4 2 2 0 000 4z" />
